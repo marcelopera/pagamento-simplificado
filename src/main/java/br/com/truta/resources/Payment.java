@@ -53,19 +53,18 @@ public class Payment {
                     return transferService.makeTransfer(req);
                 })
 
-                .flatMap(x -> externalAutorizationClient.getAuthorization().map(r -> {
+                .flatMap(item -> externalAutorizationClient.getAuthorization().map(r -> {
                     if (r.getStatus() == 200) {
 
                         AuthResponse authResponse = r.readEntity(AuthResponse.class);
 
                         if (authResponse.data().get("authorization")) {
-                            return Response.accepted(req).build();
+                            return Response.accepted(item).build();
                         }
 
                     }
                     throw new TransferException("Transação não autorizada", "002");
                 }))
-                // .invoke(x -> logger.info("Enviando notificacao")));
                 .invoke(x -> transferService.addNotificationToQueue(req)));
     }
 
