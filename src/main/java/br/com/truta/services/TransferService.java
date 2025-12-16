@@ -6,15 +6,15 @@ import java.util.concurrent.ConcurrentLinkedQueue;
 import org.eclipse.microprofile.rest.client.inject.RestClient;
 import org.jboss.logging.Logger;
 
+import br.com.truta.clients.ExternalAutorizationClient;
 import br.com.truta.clients.NotificationClient;
 import br.com.truta.entities.Account;
 import br.com.truta.entities.UserEntity;
 import br.com.truta.exceptions.TransferException;
+import br.com.truta.models.AuthResponse;
 import br.com.truta.models.TransferRequest;
 import br.com.truta.models.TransferResponse;
-import io.quarkus.hibernate.reactive.panache.PanacheEntityBase;
 import io.quarkus.scheduler.Scheduled;
-import io.smallrye.mutiny.Multi;
 import io.smallrye.mutiny.Uni;
 import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.inject.Inject;
@@ -30,60 +30,65 @@ public class TransferService {
     @Inject
     NotificationClient notificationClient;
 
+    @RestClient
+    @Inject
+    ExternalAutorizationClient externalAutorizationClient;
+
     private Queue<TransferRequest> notificationQueue = new ConcurrentLinkedQueue<>();
 
-    public Uni<TransferRequest> validateRequest(TransferRequest req) {
-
-        return UserEntity.<UserEntity>findById(req.payer()).flatMap(payer -> {
-            if (payer.type==2) {
-                return Uni.createFrom().failure(new TransferException("Falha negocial. Loja não pode fazer transferencia", "001"));
-            }
-            return Uni.createFrom().item(req);
-        });
-
+    public void validateRequest(TransferRequest req) {
+        UserEntity payer = UserEntity.<UserEntity>findById(req.payer());
+        if (payer.type == 2) {
+            throw new TransferException("Falha negocial. Loja não pode fazer transferencia", "001");
+        }
     }
 
     public void addNotificationToQueue(TransferRequest req) {
         notificationQueue.add(req);
     }
 
-    public Uni<TransferResponse> makeTransfer(TransferRequest req) {
-        return Account.<Account>find("ownerId", req.payer()).firstResult()
-                .flatMap(payer -> {
-                    
-                    if (payer == null) {
-                        return Uni.createFrom().failure(new TransferException("Conta de origem não encontrada", "004"));
-                    }
-                    if (payer.getBalance().compareTo(req.value()) < 0) {
-                        return Uni.createFrom().failure(new TransferException("Saldo insuficiente", "009"));
-                    }
+    public Response makeTransfer(TransferRequest req) {
+        Account payer = Account.find("ownerId", req.payer()).firstResult();
+        Account payee = Account.find("ownerId", req.payee()).firstResult();
 
-                    return Account.<Account>find("ownerId", req.payee()).firstResult()
-                            .map(payee -> {
-                                if (payee == null) {
-                                    throw new TransferException("Conta de destino não encontrada", "005");
-                                }
+        if (payer == null) {
+            throw new TransferException("Conta de origem não encontrada", "004");
+        }
+        if (payee == null) {
+            throw new TransferException("Conta de destino não encontrada", "005");
+        }
 
-                                payer.setBalance(payer.getBalance().subtract(req.value()));
-                                payee.setBalance(payee.getBalance().add(req.value()));
+        if (payer.getBalance().compareTo(req.value()) < 0) {
+            throw new TransferException("Saldo insuficiente", "009");
+        }
 
-                                return new TransferResponse("Transferencia Bem-sucedida");
-                            });
-                });
+        payer.setBalance(payer.getBalance().subtract(req.value()));
+        payee.setBalance(payee.getBalance().add(req.value()));
+
+        try {
+            AuthResponse authExternalResponse = externalAutorizationClient.getAuthorization().readEntity(AuthResponse.class);
+            if (authExternalResponse.data().get("authorization")) {
+                addNotificationToQueue(req);
+                return Response.status(Response.Status.ACCEPTED).entity("Transferencia Bem-sucedida").build();
+            }
+            throw new TransferException("Transação não autorizada", "002");
+        } catch (Exception e) {
+            throw new TransferException("Falha ao validar autorização", "003");
+        }
     }
 
     @Scheduled(every = "5s")
     public void sendNotification() {
         logger.info("Verificando status da fila");
-        if (!notificationQueue.isEmpty()) {
 
-            logger.info("iniciando processamento da fila de transferencias");
-
-            notificationQueue.forEach(item -> 
-                notificationClient.sendNotification().invoke(resp -> logger.info(resp.getStatus())).subscribe().with(s -> logger.info(s))
-            );
-
-            notificationQueue.clear();
+        while (!notificationQueue.isEmpty()) {
+            TransferRequest req = notificationQueue.peek();
+            try {
+                notificationClient.sendNotification();
+                notificationQueue.poll();
+            } catch (Exception e) {
+                logger.error("Falha ao enviar notificação" + e);
+            }
         }
     }
 

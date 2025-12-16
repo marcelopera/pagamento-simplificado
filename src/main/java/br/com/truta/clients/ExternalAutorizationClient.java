@@ -2,7 +2,6 @@ package br.com.truta.clients;
 
 import org.eclipse.microprofile.rest.client.inject.RegisterRestClient;
 
-import io.smallrye.mutiny.Uni;
 import jakarta.ws.rs.GET;
 import jakarta.ws.rs.core.Response;
 
@@ -10,6 +9,6 @@ import jakarta.ws.rs.core.Response;
 public interface ExternalAutorizationClient {
     
     @GET
-    Uni<Response> getAuthorization();
+    Response getAuthorization();
 
 }

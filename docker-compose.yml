@@ -1,0 +1,54 @@
+services:
+  app:
+    build: .
+    ports: ["8080:8080"]
+    networks: [pagamento]
+
+  postgres:
+    image: postgres:latest
+    environment:
+        POSTGRES_DB: payment
+        POSTGRES_USER: user
+        POSTGRES_PASSWORD: password
+    # volumes:
+    #   - postgres_data:/var/lib/postgresql/data
+    ports:
+      - "5432:5432"
+    networks: [pagamento]
+
+  otel-collector:
+      image: otel/opentelemetry-collector:latest
+      volumes:
+        - ./config/otel-collector-config.yaml:/etc/otel-collector-config.yaml
+      command: ["--config=/etc/otel-collector-config.yaml"]
+      ports: ["4317:4317", "4318:4318", "8889:8889"]
+      networks: [pagamento]
+
+  prometheus:
+      image: prom/prometheus:latest
+      volumes: ['./config/prometheus.yml:/etc/prometheus/prometheus.yml']
+      ports: ["9090:9090"]
+      networks: [pagamento]
+
+  grafana:
+      image: grafana/grafana:latest
+      ports: ["3000:3000"]
+      environment:
+        - GF_SECURITY_ADMIN_PASSWORD=admin
+      volumes:
+        - ./config/grafana-datasources.yaml:/etc/grafana/provisioning/datasources/datasources.yaml
+      networks: [pagamento]
+
+  tempo:
+      image: grafana/tempo:latest
+      command: [ "-config.file=/etc/tempo.yaml" ]
+      volumes:
+        - ./config/tempo.yaml:/etc/tempo.yaml
+      ports:
+        - "3200:3200" 
+        - "4317"        
+      networks: [pagamento]
+
+networks:
+  pagamento:
+    driver: bridge
