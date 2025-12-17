@@ -6,11 +6,8 @@ import jakarta.persistence.Entity;
 import jakarta.persistence.GeneratedValue;
 import jakarta.persistence.GenerationType;
 import jakarta.persistence.Id;
-import jakarta.persistence.Table;
-import jakarta.persistence.UniqueConstraint;
 
 @Entity(name = "USERS")
-@Table(name = "USERS", uniqueConstraints = @UniqueConstraint(columnNames = { "cadastration_code", "email" }))
 public class UserEntity extends PanacheEntityBase {
 
     @Id
@@ -24,61 +21,13 @@ public class UserEntity extends PanacheEntityBase {
     @Column(name = "type_code")
     public int type;
 
-    @Column(name = "cadastration_code")
+    @Column(name = "cadastration_code", unique = true)
     public String cadastrationCode;
 
-    @Column(name = "email")
+    @Column(name = "email", unique = true)
     public String email;
 
     @Column(name = "password")
     public String password;
-
-    public long getId() {
-        return id;
-    }
-
-    public void setId(long id) {
-        this.id = id;
-    }
-
-    public String getFullName() {
-        return fullName;
-    }
-
-    public void setFullName(String fullName) {
-        this.fullName = fullName;
-    }
-
-    public String getCadastrationCode() {
-        return cadastrationCode;
-    }
-
-    public void setCadastrationCode(String cadastrationCode) {
-        this.cadastrationCode = cadastrationCode;
-    }
-
-    public String getEmail() {
-        return email;
-    }
-
-    public void setEmail(String email) {
-        this.email = email;
-    }
-
-    public String getPassword() {
-        return password;
-    }
-
-    public void setPassword(String password) {
-        this.password = password;
-    }
-
-    public int getType() {
-        return type;
-    }
-
-    public void setType(int type) {
-        this.type = type;
-    }
 
 }

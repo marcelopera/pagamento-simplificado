@@ -1,5 +1,6 @@
 package br.com.truta.resources;
 
+import java.net.URI;
 import java.util.List;
 
 import org.jboss.logging.Logger;
@@ -9,7 +10,6 @@ import br.com.truta.entities.UserEntity;
 import br.com.truta.models.TransferRequest;
 import br.com.truta.services.TransferService;
 import io.smallrye.common.annotation.RunOnVirtualThread;
-import io.smallrye.mutiny.Uni;
 import jakarta.enterprise.context.RequestScoped;
 import jakarta.inject.Inject;
 import jakarta.transaction.Transactional;
@@ -21,7 +21,7 @@ import jakarta.ws.rs.core.Response;
 
 @RequestScoped
 @Path("/")
-public class Payment {
+public class PaymentResource {
 
     @Inject
     Logger logger;
@@ -34,8 +34,7 @@ public class Payment {
     @RunOnVirtualThread
     @Transactional
     public Response transfer(TransferRequest req) {
-        transferService.validateRequest(req);
-        
+        transferService.validateRequest(req);        
         return transferService.makeTransfer(req);
     }
 
@@ -44,9 +43,14 @@ public class Payment {
     @RunOnVirtualThread
     @Transactional
     public Response createUser(UserEntity user) {
+
+        if (UserEntity.<UserEntity>find("email = ?1 OR cadastrationCode = ?2", user.email, user.cadastrationCode).firstResult() != null) {
+            return Response.status(Response.Status.CONFLICT).entity("Usuario ja cadastrado").build();
+        }
         try {
             user.persist();
-            return Response.status(Response.Status.CREATED).build();
+            URI uri = new URI("/user/" + user.id);
+            return Response.created(uri).build();
         } catch (Exception e) {
             logger.error("Falha ao criar usuario", e);
             return Response.status(Response.Status.BAD_REQUEST).build();
@@ -58,10 +62,10 @@ public class Payment {
     @RunOnVirtualThread
     @Transactional
     public Response createAccount(Account acc) {
-
         try {
             acc.persist();
-            return Response.status(Response.Status.CREATED).build();
+            URI uri = new URI("/account/" + acc.id);
+            return Response.created(uri).build();
         } catch (Exception e) {
             logger.error("Falha ao criar conta", e);
             return Response.status(Response.Status.BAD_REQUEST).build();
@@ -73,6 +77,20 @@ public class Payment {
     @RunOnVirtualThread
     public List<UserEntity> getUsers() {
         return UserEntity.listAll();
+    }
+
+    @GET
+    @Path("/user/{id}")
+    @RunOnVirtualThread
+    public UserEntity getUser(@PathParam("id") long userId) {
+        return UserEntity.findById(userId);
+    }
+
+    @GET
+    @Path("/account/{id}")
+    @RunOnVirtualThread
+    public Account getAccount(@PathParam("id") long accId) {
+        return Account.findById(accId);
     }
 
     @GET

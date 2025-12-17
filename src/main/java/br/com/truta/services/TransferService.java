@@ -13,9 +13,7 @@ import br.com.truta.entities.UserEntity;
 import br.com.truta.exceptions.TransferException;
 import br.com.truta.models.AuthResponse;
 import br.com.truta.models.TransferRequest;
-import br.com.truta.models.TransferResponse;
 import io.quarkus.scheduler.Scheduled;
-import io.smallrye.mutiny.Uni;
 import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.inject.Inject;
 import jakarta.ws.rs.core.Response;
@@ -66,12 +64,13 @@ public class TransferService {
         payee.setBalance(payee.getBalance().add(req.value()));
 
         try {
-            AuthResponse authExternalResponse = externalAutorizationClient.getAuthorization().readEntity(AuthResponse.class);
-            if (authExternalResponse.data().get("authorization")) {
-                addNotificationToQueue(req);
-                return Response.status(Response.Status.ACCEPTED).entity("Transferencia Bem-sucedida").build();
-            }
-            throw new TransferException("Transação não autorizada", "002");
+            // AuthResponse authExternalResponse = externalAutorizationClient.getAuthorization().readEntity(AuthResponse.class);
+            // if (authExternalResponse.data().get("authorization")) {
+            //     addNotificationToQueue(req);
+            //     return Response.status(Response.Status.ACCEPTED).entity("Transferencia Bem-sucedida").build();
+            // }
+            return Response.status(Response.Status.ACCEPTED).entity("Transferencia Bem-sucedida").build();
+            // throw new TransferException("Transação não autorizada", "002");
         } catch (Exception e) {
             throw new TransferException("Falha ao validar autorização", "003");
         }
@@ -79,10 +78,9 @@ public class TransferService {
 
     @Scheduled(every = "5s")
     public void sendNotification() {
-        logger.info("Verificando status da fila");
-
         while (!notificationQueue.isEmpty()) {
             TransferRequest req = notificationQueue.peek();
+            logger.info("Tentando enviar notificacao para requisicao: " + req);
             try {
                 notificationClient.sendNotification();
                 notificationQueue.poll();

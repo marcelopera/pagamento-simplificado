@@ -15,24 +15,12 @@ public class Account extends PanacheEntityBase {
     @Id
     @GeneratedValue(strategy = GenerationType.SEQUENCE)
     @Column(name = "id")
-    long id;
+    public long id;
 
     @Column(name = "owner_id")
-    long ownerId;
+    public long ownerId;
 
     @Column(name = "balance")
-    BigDecimal balance;
-
-    public void setBalance(BigDecimal balance) {
-        this.balance = balance;
-    }
-
-    public long getOwnerId() {
-        return ownerId;
-    }
-
-    public BigDecimal getBalance() {
-        return balance;
-    }
+    public BigDecimal balance;
     
 }
